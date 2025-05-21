@@ -20,7 +20,6 @@ import com.example.dumbphonelauncher.adapter.AppDrawerPagerAdapter
 import com.example.dumbphonelauncher.model.AppInfo
 import com.example.dumbphonelauncher.model.DrawerItem
 import com.example.dumbphonelauncher.model.Folder
-import com.example.dumbphonelauncher.util.AppDrawerDragHelper
 import com.example.dumbphonelauncher.util.AppUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,7 +38,6 @@ class AppDrawerActivity : BaseActivity() {
     private lateinit var backgroundOverlay: View
     private lateinit var upArrow: ImageView
     private lateinit var pagerAdapter: AppDrawerPagerAdapter
-    private lateinit var dragHelper: AppDrawerDragHelper
 
     private val drawerItems = mutableListOf<DrawerItem>()
     private val indicators = mutableListOf<View>()
@@ -53,17 +51,6 @@ class AppDrawerActivity : BaseActivity() {
     private var globalCursorPosition = 0
     private var isTransitioning = false
     private var allowPositionUpdates = true
-    
-    // Track touch events for drag and drop
-    private var initialTouchX = 0f
-    private var initialTouchY = 0f
-    private var currentTouchX = 0f
-    private var currentTouchY = 0f
-    private var touchedItem: DrawerItem? = null
-    private var touchedItemPosition = -1
-    private var touchedView: View? = null
-    private var isLongPress = false
-    private lateinit var currentTouchEvent: MotionEvent
     
     // Track input mode (touch vs d-pad)
     private var isTouchMode = false
@@ -99,21 +86,6 @@ class AppDrawerActivity : BaseActivity() {
         
         // Determine optimal grid dimensions based on screen size
         calculateGridDimensions()
-        
-        // Initialize drag helper
-        dragHelper = AppDrawerDragHelper(
-            context = this,
-            upArrowView = upArrow,
-            onDragComplete = { fromPos, toPos ->
-                handleItemReordering(fromPos, toPos)
-            },
-            onFolderCreated = { fromItem, toItem ->
-                handleFolderCreation(fromItem, toItem)
-            },
-            onDragToHomeScreen = { item ->
-                handleDragToHomeScreen(item)
-            }
-        )
         
         // Load apps asynchronously
         loadAppsAsync()
@@ -244,29 +216,18 @@ class AppDrawerActivity : BaseActivity() {
                 showFolderContents(folderItem.folder)
             },
             onItemLongPress = { view, item, position ->
-                // Store info for potential drag operation
-                touchedView = view
-                touchedItem = item
-                touchedItemPosition = position
-                
-                // If this is a genuine long press, show options popup
-                // Actual drag/drop will be handled in touch event handling
-                if (!dragHelper.isMovementSignificant()) {
-                    isLongPress = true
-                    if (item is DrawerItem.AppItem) {
-                        showAppOptionsPopup(view, item.appInfo)
-                    }
+                // Only show options popup, no drag logic
+                if (item is DrawerItem.AppItem) {
+                    showAppOptionsPopup(view, item.appInfo)
                 }
             },
             onPageSelected = { pageIndex ->
-                // Only handle page selection via adapter if we're not in a transition
                 if (!isTransitioning) {
                     viewPager.setCurrentItem(pageIndex, true)
                     updatePageIndicator()
                 }
             },
             onItemFocused = { position, page ->
-                // Update global cursor position when item gets focus via adapter events
                 if (!isTransitioning && allowPositionUpdates && !isTouchMode) {
                     val globalPos = getGlobalPosition(page, position)
                     if (globalPos != globalCursorPosition) {
@@ -447,9 +408,6 @@ class AppDrawerActivity : BaseActivity() {
                 }
             }
         })
-        
-        // Setup touch handling for drag operations
-        setupTouchHandling()
         
         // Set initial focus (or hide it if in touch mode)
         lifecycleScope.launch {
@@ -653,35 +611,6 @@ class AppDrawerActivity : BaseActivity() {
     }
     
     /**
-     * Setup touch handling for drag operations
-     */
-    private fun setupTouchHandling() {
-        // Hack to get internal RecyclerView from ViewPager2
-        try {
-            val recyclerViewField = ViewPager2::class.java.getDeclaredField("mRecyclerView")
-            recyclerViewField.isAccessible = true
-            val viewPagerRecyclerView = recyclerViewField.get(viewPager) as RecyclerView
-            
-            // Add a custom ItemDecoration to draw drag overlay
-            viewPagerRecyclerView.addItemDecoration(object : RecyclerView.ItemDecoration() {
-                override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-                    // Get current page RecyclerView
-                    val currentPage = viewPager.currentItem
-                    val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
-                    
-                    // Draw drag overlay if needed
-                    currentRecyclerView?.let { recyclerView ->
-                        dragHelper.onDrawOver(canvas, recyclerView)
-                    }
-                }
-            })
-        } catch (e: Exception) {
-            // If we can't get the RecyclerView, fallback to simpler handling
-            e.printStackTrace()
-        }
-    }
-    
-    /**
      * Load drawer items
      */
     private suspend fun loadDrawerItems(): List<DrawerItem> {
@@ -732,63 +661,6 @@ class AppDrawerActivity : BaseActivity() {
     }
     
     /**
-     * Handle item reordering when drag completes
-     */
-    private fun handleItemReordering(fromPosition: Int, toPosition: Int) {
-        if (fromPosition != toPosition && fromPosition >= 0 && toPosition >= 0 
-            && fromPosition < drawerItems.size && toPosition < drawerItems.size) {
-            
-            // Get the item to move
-            val item = drawerItems[fromPosition]
-            
-            // Remove from original position and add to new position
-            drawerItems.removeAt(fromPosition)
-            drawerItems.add(toPosition, item)
-            
-            // Save changes
-            saveDrawerItems()
-            
-            // Refresh the adapter
-            refreshAdapter(toPosition)
-        }
-    }
-    
-    /**
-     * Handle folder creation when drag item is dropped on another
-     */
-    private fun handleFolderCreation(fromItem: DrawerItem, toItem: DrawerItem) {
-        // Find positions
-        val fromPosition = drawerItems.indexOf(fromItem)
-        val toPosition = drawerItems.indexOf(toItem)
-        
-        if (fromPosition >= 0 && toPosition >= 0) {
-            // Create a new folder from the two items
-            if (fromItem is DrawerItem.AppItem && toItem is DrawerItem.AppItem) {
-                // Create folder with both apps
-                val folder = Folder(
-                    name = "Folder",
-                    apps = mutableListOf(fromItem.appInfo, toItem.appInfo)
-                )
-                
-                // Replace the target item with the folder and remove the source item
-                drawerItems[toPosition] = DrawerItem.FolderItem(folder)
-                drawerItems.removeAt(fromPosition)
-                
-            } else if (fromItem is DrawerItem.AppItem && toItem is DrawerItem.FolderItem) {
-                // Add app to existing folder
-                toItem.folder.apps.add(fromItem.appInfo)
-                drawerItems.removeAt(fromPosition)
-            }
-            
-            // Save changes
-            saveDrawerItems()
-            
-            // Refresh the adapter
-            refreshAdapter(toPosition)
-        }
-    }
-    
-    /**
      * Refresh the adapter after changes
      */
     private fun refreshAdapter(targetPosition: Int) {
@@ -822,25 +694,6 @@ class AppDrawerActivity : BaseActivity() {
         } else {
             setupViewPager()
         }
-    }
-    
-    /**
-     * Handle dragging item to home screen
-     */
-    private fun handleDragToHomeScreen(item: DrawerItem) {
-        setResult(RESULT_OK, intent.apply {
-            putExtra("dragged_item", when (item) {
-                is DrawerItem.AppItem -> "app:${item.appInfo.packageName}"
-                is DrawerItem.FolderItem -> {
-                    val apps = item.folder.apps.joinToString(";") { it.packageName }
-                    "folder:${item.folder.name}:$apps"
-                }
-            })
-        })
-        
-        // Close the app drawer with animation
-        finish()
-        // Animation is now handled in the overridden finish() method
     }
     
     /**
@@ -922,129 +775,35 @@ class AppDrawerActivity : BaseActivity() {
      * Handle touch events for drag operations and single-touch app opening
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        currentTouchEvent = ev
-        
-        // Track last touch time
-        lastTouchTime = System.currentTimeMillis()
-        
-        // If we detect a touch, switch to touch mode
-        if (ev.action == MotionEvent.ACTION_DOWN && !isTouchMode) {
-            switchToTouchMode()
-        }
-        
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                initialTouchX = ev.rawX
-                initialTouchY = ev.rawY
-                isLongPress = false
-            }
-            MotionEvent.ACTION_MOVE -> {
-                currentTouchX = ev.rawX
-                currentTouchY = ev.rawY
-                
-                // If we have a touched item and view, handle dragging
-                if (touchedItem != null && touchedView != null && touchedItemPosition >= 0) {
-                    // Get current page RecyclerView
-                    val currentPage = viewPager.currentItem
-                    val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
-                    
-                    // Handle drag movement
-                    currentRecyclerView?.let { recyclerView ->
-                        if (dragHelper.onTouchDown(ev, touchedView!!, touchedItem!!, touchedItemPosition)) {
-                            // If touch down initiated drag, we need to handle it
-                            if (dragHelper.onTouchMove(ev, recyclerView)) {
-                                return true
-                            }
-                        }
-                    }
-                }
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                // If we have a touched item and view, handle drop
-                if (touchedItem != null && touchedView != null && touchedItemPosition >= 0) {
-                    // Get current page RecyclerView
-                    val currentPage = viewPager.currentItem
-                    val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
-                    
-                    // Handle drag end
-                    currentRecyclerView?.let { recyclerView ->
-                        if (dragHelper.onTouchUp(ev, recyclerView)) {
-                            // Reset touch tracking
-                            touchedItem = null
-                            touchedView = null
-                            touchedItemPosition = -1
-                            isLongPress = false
-                            return true
-                        }
-                    }
-                    
-                    // Reset touch tracking
-                    touchedItem = null
-                    touchedView = null
-                    touchedItemPosition = -1
-                    isLongPress = false
-                } else if (ev.action == MotionEvent.ACTION_UP) {
-                    // This is a regular touch (not a drag, not a long press)
-                    // Try to find and open the tapped app
-                    
-                    // Get touch coordinates
-                    val x = ev.rawX
-                    val y = ev.rawY
-                    
-                    // Get current page view and find the tapped item
-                    val currentPage = viewPager.currentItem
-                    val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
-                    
-                    // Calculate tap tolerance (movement less than this is considered a tap)
-                    val tapTolerance = 20f
-                    val isSimpleTap = Math.abs(x - initialTouchX) < tapTolerance && 
-                                       Math.abs(y - initialTouchY) < tapTolerance
-                    
-                    // Only try to find the item if this is a simple tap, not a swipe
-                    if (isSimpleTap && currentRecyclerView != null) {
-                        // Convert raw screen coordinates to relative coordinates in the RecyclerView
-                        val recyclerViewLocation = IntArray(2)
-                        currentRecyclerView.getLocationOnScreen(recyclerViewLocation)
-                        
-                        val relativeX = x - recyclerViewLocation[0]
-                        val relativeY = y - recyclerViewLocation[1]
-                        
-                        // Find the child view at these coordinates
-                        val touchedView = currentRecyclerView.findChildViewUnder(relativeX, relativeY)
-                        
-                        if (touchedView != null) {
-                            // Get the adapter position of the touched view
-                            val position = currentRecyclerView.getChildAdapterPosition(touchedView)
-                            if (position != RecyclerView.NO_POSITION) {
-                                // Get global position from page and local position
-                                val globalPosition = getGlobalPosition(currentPage, position)
-                                
-                                // Check if the position is valid
-                                if (globalPosition >= 0 && globalPosition < drawerItems.size) {
-                                    // Get the item at this position
-                                    val item = drawerItems[globalPosition]
-                                    
-                                    // Open the app/folder directly
-                                    when (item) {
-                                        is DrawerItem.AppItem -> {
-                                            // Open the app
-                                            startActivity(item.appInfo.launchIntent)
-                                            return true
-                                        }
-                                        is DrawerItem.FolderItem -> {
-                                            // Open the folder
-                                            showFolderContents(item.folder)
-                                            return true
-                                        }
-                                    }
-                                }
+        // Only handle simple tap to open app/folder, no drag logic
+        if (ev.action == MotionEvent.ACTION_UP) {
+            val x = ev.rawX
+            val y = ev.rawY
+            val currentPage = viewPager.currentItem
+            val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
+            val tapTolerance = 20f
+            // Use local variables for tap detection
+            if (currentRecyclerView != null) {
+                val recyclerViewLocation = IntArray(2)
+                currentRecyclerView.getLocationOnScreen(recyclerViewLocation)
+                val relativeX = x - recyclerViewLocation[0]
+                val relativeY = y - recyclerViewLocation[1]
+                val touchedView = currentRecyclerView.findChildViewUnder(relativeX, relativeY)
+                if (touchedView != null) {
+                    val position = currentRecyclerView.getChildAdapterPosition(touchedView)
+                    if (position != RecyclerView.NO_POSITION) {
+                        val globalPosition = getGlobalPosition(currentPage, position)
+                        if (globalPosition >= 0 && globalPosition < drawerItems.size) {
+                            val item = drawerItems[globalPosition]
+                            when (item) {
+                                is DrawerItem.AppItem -> startActivity(item.appInfo.launchIntent)
+                                is DrawerItem.FolderItem -> showFolderContents(item.folder)
                             }
                         }
                     }
                 }
             }
         }
-        
         return super.dispatchTouchEvent(ev)
     }
     
@@ -1381,4 +1140,4 @@ class AppDrawerActivity : BaseActivity() {
         // Touch timeout before returning to d-pad mode (in ms)
         const val TOUCH_TIMEOUT = 5000L
     }
-} 
+}

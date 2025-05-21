@@ -14,32 +14,22 @@ import android.widget.TextClock
 import android.widget.TextView
 import android.widget.ImageView
 import androidx.appcompat.app.AlertDialog
-import androidx.recyclerview.widget.DefaultItemAnimator
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.ItemTouchHelper
-import com.example.dumbphonelauncher.adapter.AppsSelectionAdapter
-import com.example.dumbphonelauncher.adapter.PinnedAppsAdapter
-import com.example.dumbphonelauncher.model.AppInfo
-import com.example.dumbphonelauncher.model.DrawerItem
+import androidx.lifecycle.lifecycleScope
 import com.example.dumbphonelauncher.util.AppUtils
-import com.example.dumbphonelauncher.util.PinnedAppsDragDropCallback
 import com.example.dumbphonelauncher.view.WallpaperView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : BaseActivity() {
     
-    private lateinit var pinnedAppsRecycler: RecyclerView
-    private lateinit var pinnedAppsAdapter: PinnedAppsAdapter
     private lateinit var appButton: TextView
     private lateinit var rightAppButton: TextView
-    private lateinit var notificationArea: View
     private lateinit var clockView: TextClock
     private lateinit var dateView: TextClock
     private lateinit var deleteIcon: ImageView
     private lateinit var wallpaperView: com.example.dumbphonelauncher.view.WallpaperView
     
     private val numberBuffer = StringBuilder()
-    private val maxPinnedApps = 4
     private val dialerHandler = Handler(Looper.getMainLooper())
     private var dialerRunnable: Runnable? = null
     
@@ -55,27 +45,19 @@ class MainActivity : BaseActivity() {
         
         setupWallpaper()
         
-        pinnedAppsRecycler = findViewById(R.id.pinned_apps_recycler)
         appButton = findViewById(R.id.app_button)
         rightAppButton = findViewById(R.id.right_app_button)
-        notificationArea = findViewById(R.id.notification_area)
         clockView = findViewById(R.id.clock)
         dateView = findViewById(R.id.date)
         deleteIcon = findViewById(R.id.delete_icon)
         wallpaperView = findViewById(R.id.wallpaper_view)
         
-        setupPinnedApps()
         setupClickListeners()
         setupRightAppButton()
-        
-        // Request focus on pinned apps to start with
-        pinnedAppsRecycler.post {
-            pinnedAppsRecycler.requestFocus()
-            
-            // If pinned apps has children, focus on the first one
-            if (pinnedAppsRecycler.childCount > 0) {
-                pinnedAppsRecycler.getChildAt(0)?.requestFocus()
-            }
+
+        // Preload app drawer icons in the background for instant drawer open
+        lifecycleScope.launch(Dispatchers.IO) {
+            com.example.dumbphonelauncher.util.AppUtils.getInstalledApps(packageManager)
         }
     }
     
@@ -87,14 +69,6 @@ class MainActivity : BaseActivity() {
             // Override transition animation for home button press
             overridePendingTransition(R.anim.home_enter, R.anim.home_exit)
         }
-        
-        // Reset UI state if needed
-        pinnedAppsRecycler.post {
-            pinnedAppsRecycler.requestFocus()
-            if (pinnedAppsRecycler.childCount > 0) {
-                pinnedAppsRecycler.getChildAt(0)?.requestFocus()
-            }
-        }
     }
     
     private fun setupWallpaper() {
@@ -103,98 +77,6 @@ class MainActivity : BaseActivity() {
         // No additional setup needed, the custom WallpaperView handles everything
         // Just make sure the window background is transparent
         window.setBackgroundDrawableResource(android.R.color.transparent)
-    }
-    
-    private fun setupPinnedApps() {
-        // Optimize recyclerView
-        pinnedAppsRecycler.setHasFixedSize(true)
-        (pinnedAppsRecycler.itemAnimator as? DefaultItemAnimator)?.supportsChangeAnimations = false
-        
-        // Get installed apps
-        val installedApps = AppUtils.getInstalledApps(packageManager)
-        
-        // Get pinned items from preferences
-        val pinnedItems = prefManager.getPinnedItems(installedApps)
-        
-        pinnedAppsAdapter = PinnedAppsAdapter(
-            pinnedItems.toMutableList(), 
-            maxPinnedApps,
-            onAppClick = { appInfo ->
-                startActivity(appInfo.launchIntent)
-            },
-            onFolderClick = { folder ->
-                showFolderContents(folder)
-            },
-            onEmptySlotClick = { position ->
-                showAppSelectionDialog { selectedApp ->
-                    addPinnedApp(selectedApp, position)
-                }
-            },
-            onItemLongClick = { view ->
-                // Get the adapter position
-                val position = pinnedAppsRecycler.getChildAdapterPosition(view)
-                if (position != RecyclerView.NO_POSITION && position < pinnedItems.size) {
-                    when (val item = pinnedItems[position]) {
-                        is DrawerItem.AppItem -> showAppOptionsPopup(view, item.appInfo)
-                        is DrawerItem.FolderItem -> {
-                            // For folders, just show the drag hint
-                            // TODO: Implement folder options if needed
-                        }
-                    }
-                }
-            },
-            onRearrange = { items ->
-                // Save the updated order and folders to preferences
-                prefManager.savePinnedItems(items)
-            }
-        )
-        
-        pinnedAppsRecycler.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = pinnedAppsAdapter
-            
-            // Make sure the RecyclerView has focus to start
-            isFocusable = true
-            isFocusableInTouchMode = true
-        }
-        
-        // Set up drag and drop
-        setupDragAndDrop()
-    }
-    
-    private fun setupDragAndDrop() {
-        val callback = PinnedAppsDragDropCallback { fromPosition, toPosition ->
-            // Handle item reordering
-            pinnedAppsAdapter.moveItem(fromPosition, toPosition)
-        }
-        val itemTouchHelper = ItemTouchHelper(callback)
-        itemTouchHelper.attachToRecyclerView(pinnedAppsRecycler)
-    }
-    
-    // Folder contents are handled by the base class
-    
-    // Preference management is now handled by PreferenceManager
-    
-    private fun addPinnedApp(app: AppInfo, position: Int) {
-        // Get installed apps
-        val installedApps = AppUtils.getInstalledApps(packageManager)
-        
-        // Get current items
-        val currentItems = prefManager.getPinnedItems(installedApps).toMutableList()
-        
-        // Ensure we have enough slots
-        while (currentItems.size <= position) {
-            currentItems.add(DrawerItem.AppItem(app)) // Add placeholder that will be overwritten
-        }
-        
-        // Update the position
-        currentItems[position] = DrawerItem.AppItem(app)
-        
-        // Save to preferences
-        prefManager.savePinnedItems(currentItems)
-        
-        // Refresh UI
-        setupPinnedApps()
     }
     
     private fun setupRightAppButton() {
@@ -237,10 +119,6 @@ class MainActivity : BaseActivity() {
     private fun setupClickListeners() {
         appButton.setOnClickListener {
             openAppDrawerByTouch()
-        }
-        
-        notificationArea.setOnClickListener {
-            openNotificationPanel()
         }
         
         // Set up clock click to open Clock app
@@ -300,12 +178,6 @@ class MainActivity : BaseActivity() {
     // Using the showAppSelectionDialog method from BaseActivity
     
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // Handle notification panel open on D-pad down when notification area has focus
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && notificationArea.hasFocus()) {
-            openNotificationPanel()
-            return true
-        }
-        
         // Handle ENDCALL key on the home screen to turn off the screen
         if (keyCode == KeyEvent.KEYCODE_ENDCALL) {
             // We're on the home screen, so turn off the screen
@@ -389,22 +261,14 @@ class MainActivity : BaseActivity() {
         // Use delayed fade-in animation when returning from app drawer
         overridePendingTransition(R.anim.home_fade_in_delayed, 0)
         
-        // Refresh pinned apps in case they changed
-        setupPinnedApps()
-        
         // Clear number buffer
         numberBuffer.clear()
         
         // Cancel any pending dialer launch
         dialerRunnable?.let { dialerHandler.removeCallbacks(it) }
         
-        // Request focus on pinned apps
-        pinnedAppsRecycler.post {
-            pinnedAppsRecycler.requestFocus()
-            if (pinnedAppsRecycler.childCount > 0) {
-                pinnedAppsRecycler.getChildAt(0)?.requestFocus()
-            }
-        }
+        // Request focus on app button
+        appButton.requestFocus()
     }
     
     override fun onPause() {
@@ -416,11 +280,10 @@ class MainActivity : BaseActivity() {
     // App options popup is now handled by AppOptionsPopupHelper
     
     override fun onAppHidden(packageName: String) {
-        // Refresh pinned apps if an app is hidden
-        setupPinnedApps()
+        // No pinned apps logic, so nothing to refresh
     }
     
     companion object {
         const val REQUEST_PIN_APP = 100
     }
-} 
+}

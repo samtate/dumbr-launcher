@@ -259,28 +259,6 @@ class AppDrawerGridAdapter(
     }
     
     /**
-     * Move an item from one position to another
-     */
-    fun moveItem(fromPosition: Int, toPosition: Int): Boolean {
-        if (fromPosition < 0 || toPosition < 0 || fromPosition >= items.size || toPosition >= items.size) {
-            return false
-        }
-        
-        val mutableItems = items.toMutableList()
-        val item = mutableItems.removeAt(fromPosition)
-        mutableItems.add(toPosition, item)
-        
-        // Use DiffUtil to update the adapter efficiently
-        val diffCallback = DrawerItemDiffCallback(items, mutableItems)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        
-        items = mutableItems
-        diffResult.dispatchUpdatesTo(this)
-        
-        return true
-    }
-    
-    /**
      * Clear focus from all items
      */
     fun clearFocus() {
@@ -371,4 +349,4 @@ class AppDrawerGridAdapter(
             getItemId(i)
         }
     }
-} 
+}
