@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dumbphone Launcher</string>
+    <string name="apps">Apps</string>
+    <string name="contacts">Contacts</string>
+    <string name="add_app">Add App</string>
+    <string name="select_app">Select App</string>
+    <string name="pinned_apps">Pinned Apps</string>
+    <string name="drag_to_rearrange">Drag to rearrange</string>
+    <string name="drop_to_create_folder">Drop to create folder</string>
+    <string name="delete">Delete</string>
+    <string name="info">Info</string>
+    <string name="hide">Hide</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="close">Close</string>
+    <string name="drag_to_homescreen">Drag to home screen</string>
+</resources> 

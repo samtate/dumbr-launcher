@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default screen margins -->
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    
+    <!-- ViewPager2 spacing -->
+    <dimen name="viewpager_margin">24dp</dimen>
+    <dimen name="viewpager_offset">24dp</dimen>
+    
+    <!-- Status bar height for devices without system method -->
+    <dimen name="status_bar_height">24dp</dimen>
+    
+    <!-- App drawer dimensions -->
+    <dimen name="app_drawer_icon_size">48dp</dimen>
+    <dimen name="app_drawer_text_size">12sp</dimen>
+    <dimen name="app_drawer_item_padding">8dp</dimen>
+    <dimen name="app_drawer_padding">16dp</dimen>
+    
+    <!-- Page indicators -->
+    <dimen name="indicator_size">8dp</dimen>
+    <dimen name="indicator_margin">4dp</dimen>
+    <dimen name="page_margin">24dp</dimen>
+    
+    <!-- Fixed height for app drawer items to maintain consistent grid -->
+    <dimen name="app_item_height">96dp</dimen>
+</resources> 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowAnimationStyle">@style/WindowAnimationTransition</item>
+    </style>
+    
+    <!-- Window Transition Animation -->
+    <style name="WindowAnimationTransition">
+        <item name="android:windowEnterAnimation">@anim/home_enter</item>
+        <item name="android:windowExitAnimation">@anim/home_exit</item>
+    </style>
+    
+    <!-- App dialog animation style -->
+    <style name="AppDialogAnimation" parent="Animation.AppCompat.Dialog">
+        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+    </style>
+    
+    <!-- App Drawer Animation -->
+    <style name="AppDrawerAnimation">
+        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
+    </style>
+</resources> 

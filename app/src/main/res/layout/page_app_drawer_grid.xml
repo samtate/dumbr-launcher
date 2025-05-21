@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="true"
+    android:clipToPadding="true"
+    android:descendantFocusability="afterDescendants">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/grid_recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:focusedByDefault="true"
+        android:descendantFocusability="afterDescendants"
+        android:overScrollMode="never"
+        android:nextFocusLeft="@id/grid_recycler_view"
+        android:nextFocusRight="@id/grid_recycler_view"
+        android:nextFocusUp="@id/grid_recycler_view"
+        android:nextFocusDown="@id/grid_recycler_view"
+        tools:listitem="@layout/item_app" />
+        
+</FrameLayout> 

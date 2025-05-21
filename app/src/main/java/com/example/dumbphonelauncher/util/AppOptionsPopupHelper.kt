@@ -1,0 +1,117 @@
+package com.example.dumbphonelauncher.util
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.Toast
+import com.example.dumbphonelauncher.R
+import com.example.dumbphonelauncher.model.AppInfo
+
+/**
+ * Helper class for showing app options popup (Info/Hide/Uninstall)
+ */
+class AppOptionsPopupHelper(
+    private val context: Context,
+    private val prefManager: PreferenceManager,
+    private val onAppHidden: (String) -> Unit
+) {
+
+    /**
+     * Show app options popup
+     */
+    fun showAppOptionsPopup(anchorView: View, appInfo: AppInfo) {
+        // Inflate the popup layout
+        val popupView = LayoutInflater.from(context).inflate(R.layout.app_options_popup, null)
+        
+        // Create the popup window
+        val popupWindow = PopupWindow(
+            popupView,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        
+        // Add elevation for shadow
+        popupWindow.elevation = 10f
+        
+        // Set up button click listeners
+        val btnInfo = popupView.findViewById<Button>(R.id.btn_app_info)
+        val btnHide = popupView.findViewById<Button>(R.id.btn_hide_app)
+        val btnUninstall = popupView.findViewById<Button>(R.id.btn_uninstall)
+        
+        // Make buttons respond to clicks immediately without requiring focus first
+        btnInfo.isFocusableInTouchMode = false
+        btnHide.isFocusableInTouchMode = false
+        btnUninstall.isFocusableInTouchMode = false
+        
+        // Set selected state for immediate visual feedback
+        btnInfo.isSelected = true
+        btnHide.isSelected = true
+        btnUninstall.isSelected = true
+        
+        // App Info button - open system app details
+        btnInfo.setOnClickListener { view ->
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.parse("package:${appInfo.packageName}")
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not open app info: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                popupWindow.dismiss()
+            }
+        }
+        
+        // Hide app button - add to hidden apps preference
+        btnHide.setOnClickListener { view ->
+            try {
+                prefManager.hideApp(appInfo.packageName)
+                
+                // Show confirmation toast
+                Toast.makeText(context, "${appInfo.appName} hidden", Toast.LENGTH_SHORT).show()
+                
+                // Call callback
+                onAppHidden(appInfo.packageName)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not hide app: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                popupWindow.dismiss()
+            }
+        }
+        
+        // Uninstall button - launch uninstall intent
+        btnUninstall.setOnClickListener { view ->
+            try {
+                // Create uninstall Intent with ALL required flags to ensure it works properly
+                val uninstallIntent = Intent(Intent.ACTION_DELETE).apply {
+                    data = Uri.parse("package:${appInfo.packageName}")
+                    // Add all necessary flags
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                context.startActivity(uninstallIntent)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not uninstall app: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                popupWindow.dismiss()
+            }
+        }
+        
+        // Configure popup view for instant interaction
+        popupView.isFocusableInTouchMode = false
+        popupView.isFocusable = true
+        
+        // Set the content view to be clickable but not focusable to prevent focus-first behavior
+        popupWindow.isOutsideTouchable = true
+        popupWindow.isTouchable = true
+        
+        // Show the popup window
+        popupWindow.showAsDropDown(anchorView, 0, -anchorView.height * 2)
+    }
+} 

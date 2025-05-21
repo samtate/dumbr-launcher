@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@android:color/background_dark"
+    android:padding="8dp"
+    android:elevation="8dp">
+
+    <Button
+        android:id="@+id/btn_app_info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/info"
+        android:textSize="12sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="8dp"
+        android:layout_marginEnd="8dp"/>
+
+    <Button
+        android:id="@+id/btn_hide_app"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/hide"
+        android:textSize="12sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="8dp"
+        android:layout_marginEnd="8dp"/>
+
+    <Button
+        android:id="@+id/btn_uninstall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/uninstall"
+        android:textSize="12sp"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:padding="8dp"/>
+
+</LinearLayout> 
