@@ -28,6 +28,9 @@ abstract class BaseActivity : AppCompatActivity() {
     protected lateinit var prefManager: PreferenceManager
     protected lateinit var appOptionsHelper: AppOptionsPopupHelper
     
+    // Add uninstall launcher
+    private var uninstallLauncher: ((String) -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -37,6 +40,9 @@ abstract class BaseActivity : AppCompatActivity() {
             prefManager, 
             onAppHidden = { packageName ->
                 onAppHidden(packageName)
+            },
+            onUninstallRequested = { packageName ->
+                uninstallLauncher?.invoke(packageName)
             }
         )
         
@@ -284,4 +290,11 @@ abstract class BaseActivity : AppCompatActivity() {
         paint.maskFilter = blurMaskFilter
         canvas.drawRect(0f, 0f, 1f, 1f, paint)
     }
-} 
+    
+    /**
+     * Set the uninstall launcher callback
+     */
+    protected fun setUninstallLauncher(launcher: (String) -> Unit) {
+        uninstallLauncher = launcher
+    }
+}

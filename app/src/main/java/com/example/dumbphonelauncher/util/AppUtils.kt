@@ -119,4 +119,4 @@ object AppUtils {
     fun isCacheInitialized(): Boolean {
         return cachedApps != null
     }
-} 
+}

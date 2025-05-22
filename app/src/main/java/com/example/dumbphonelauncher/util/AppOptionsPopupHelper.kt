@@ -19,7 +19,8 @@ import com.example.dumbphonelauncher.model.AppInfo
 class AppOptionsPopupHelper(
     private val context: Context,
     private val prefManager: PreferenceManager,
-    private val onAppHidden: (String) -> Unit
+    private val onAppHidden: (String) -> Unit,
+    private val onUninstallRequested: (String) -> Unit // <-- add this
 ) {
 
     /**
@@ -44,6 +45,20 @@ class AppOptionsPopupHelper(
         val btnInfo = popupView.findViewById<Button>(R.id.btn_app_info)
         val btnHide = popupView.findViewById<Button>(R.id.btn_hide_app)
         val btnUninstall = popupView.findViewById<Button>(R.id.btn_uninstall)
+        // Hide uninstall button for system apps that cannot be uninstalled
+        try {
+            val pm = context.packageManager
+            val appFlags = pm.getApplicationInfo(appInfo.packageName, 0).flags
+            val isSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+            val isUpdatedSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            if (isSystemApp && !isUpdatedSystemApp) {
+                btnUninstall.visibility = View.GONE
+            } else {
+                btnUninstall.visibility = View.VISIBLE
+            }
+        } catch (e: Exception) {
+            btnUninstall.visibility = View.VISIBLE // fallback: show if unsure
+        }
         
         // Make buttons respond to clicks immediately without requiring focus first
         btnInfo.isFocusableInTouchMode = false
@@ -88,16 +103,9 @@ class AppOptionsPopupHelper(
         // Uninstall button - launch uninstall intent
         btnUninstall.setOnClickListener { view ->
             try {
-                // Create uninstall Intent with ALL required flags to ensure it works properly
-                val uninstallIntent = Intent(Intent.ACTION_DELETE).apply {
-                    data = Uri.parse("package:${appInfo.packageName}")
-                    // Add all necessary flags
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                context.startActivity(uninstallIntent)
+                onUninstallRequested(appInfo.packageName)
             } catch (e: Exception) {
-                Toast.makeText(context, "Could not uninstall app: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Could not uninstall app: e.message}", Toast.LENGTH_SHORT).show()
             } finally {
                 popupWindow.dismiss()
             }
@@ -114,4 +122,4 @@ class AppOptionsPopupHelper(
         // Show the popup window
         popupWindow.showAsDropDown(anchorView, 0, -anchorView.height * 2)
     }
-} 
+}

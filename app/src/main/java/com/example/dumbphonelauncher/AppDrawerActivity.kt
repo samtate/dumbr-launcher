@@ -1,7 +1,12 @@
 package com.example.dumbphonelauncher
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Point
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -12,9 +17,12 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.viewpager2.widget.ViewPager2
-import androidx.recyclerview.widget.RecyclerView
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.example.dumbphonelauncher.adapter.AppDrawerGridAdapter
 import com.example.dumbphonelauncher.adapter.AppDrawerPagerAdapter
 import com.example.dumbphonelauncher.model.AppInfo
@@ -22,14 +30,9 @@ import com.example.dumbphonelauncher.model.DrawerItem
 import com.example.dumbphonelauncher.model.Folder
 import com.example.dumbphonelauncher.util.AppUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.content.Context
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.delay
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
-import android.view.animation.DecelerateInterpolator
 
 class AppDrawerActivity : BaseActivity() {
 
@@ -56,6 +59,9 @@ class AppDrawerActivity : BaseActivity() {
     private var isTouchMode = false
     private var wasOpenedByTouch = false
     private var lastTouchTime = 0L
+
+    private lateinit var uninstallAppLauncher: ActivityResultLauncher<Intent>
+    private var pendingUninstallPackage: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,6 +95,36 @@ class AppDrawerActivity : BaseActivity() {
         
         // Load apps asynchronously
         loadAppsAsync()
+
+        uninstallAppLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            pendingUninstallPackage?.let { pkg ->
+                val isStillInstalled = try {
+                    packageManager.getPackageInfo(pkg, 0)
+                    true
+                } catch (e: Exception) {
+                    false
+                }
+                if (!isStillInstalled) {
+                    val prevPage = viewPager.currentItem
+                    val prevCursor = globalCursorPosition
+                    com.example.dumbphonelauncher.util.AppUtils.clearCache()
+                    loadAppsAsync()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        viewPager.setCurrentItem(prevPage, false)
+                        updateCursorPosition(prevCursor, false)
+                    }, 300)
+                }
+                pendingUninstallPackage = null
+            }
+        }
+        setUninstallLauncher { packageName: String ->
+            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                data = Uri.parse("package:$packageName")
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
+            pendingUninstallPackage = packageName
+            uninstallAppLauncher.launch(intent)
+        }
     }
     
     /**
