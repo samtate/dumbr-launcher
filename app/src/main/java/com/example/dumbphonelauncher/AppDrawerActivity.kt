@@ -63,6 +63,13 @@ class AppDrawerActivity : BaseActivity() {
     private lateinit var uninstallAppLauncher: ActivityResultLauncher<Intent>
     private var pendingUninstallPackage: String? = null
 
+    // --- Add these fields to track touch state ---
+    private var touchDownX = 0f
+    private var touchDownY = 0f
+    private var touchDownTime = 0L
+    private val TAP_SLOP = 32f // px, adjust as needed
+    private val TAP_TIMEOUT = 300L // ms
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -811,29 +818,39 @@ class AppDrawerActivity : BaseActivity() {
      * Handle touch events for drag operations and single-touch app opening
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // Only handle simple tap to open app/folder, no drag logic
-        if (ev.action == MotionEvent.ACTION_UP) {
-            val x = ev.rawX
-            val y = ev.rawY
-            val currentPage = viewPager.currentItem
-            val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
-            val tapTolerance = 20f
-            // Use local variables for tap detection
-            if (currentRecyclerView != null) {
-                val recyclerViewLocation = IntArray(2)
-                currentRecyclerView.getLocationOnScreen(recyclerViewLocation)
-                val relativeX = x - recyclerViewLocation[0]
-                val relativeY = y - recyclerViewLocation[1]
-                val touchedView = currentRecyclerView.findChildViewUnder(relativeX, relativeY)
-                if (touchedView != null) {
-                    val position = currentRecyclerView.getChildAdapterPosition(touchedView)
-                    if (position != RecyclerView.NO_POSITION) {
-                        val globalPosition = getGlobalPosition(currentPage, position)
-                        if (globalPosition >= 0 && globalPosition < drawerItems.size) {
-                            val item = drawerItems[globalPosition]
-                            when (item) {
-                                is DrawerItem.AppItem -> startActivity(item.appInfo.launchIntent)
-                                is DrawerItem.FolderItem -> showFolderContents(item.folder)
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                touchDownX = ev.rawX
+                touchDownY = ev.rawY
+                touchDownTime = System.currentTimeMillis()
+            }
+            MotionEvent.ACTION_UP -> {
+                val dx = ev.rawX - touchDownX
+                val dy = ev.rawY - touchDownY
+                val dist = Math.hypot(dx.toDouble(), dy.toDouble())
+                val duration = System.currentTimeMillis() - touchDownTime
+                if (dist <= TAP_SLOP && duration <= TAP_TIMEOUT) {
+                    val x = ev.rawX
+                    val y = ev.rawY
+                    val currentPage = viewPager.currentItem
+                    val currentRecyclerView = pagerAdapter.getRecyclerViewAt(currentPage)
+                    if (currentRecyclerView != null) {
+                        val recyclerViewLocation = IntArray(2)
+                        currentRecyclerView.getLocationOnScreen(recyclerViewLocation)
+                        val relativeX = x - recyclerViewLocation[0]
+                        val relativeY = y - recyclerViewLocation[1]
+                        val touchedView = currentRecyclerView.findChildViewUnder(relativeX, relativeY)
+                        if (touchedView != null) {
+                            val position = currentRecyclerView.getChildAdapterPosition(touchedView)
+                            if (position != RecyclerView.NO_POSITION) {
+                                val globalPosition = getGlobalPosition(currentPage, position)
+                                if (globalPosition >= 0 && globalPosition < drawerItems.size) {
+                                    val item = drawerItems[globalPosition]
+                                    when (item) {
+                                        is DrawerItem.AppItem -> startActivity(item.appInfo.launchIntent)
+                                        is DrawerItem.FolderItem -> showFolderContents(item.folder)
+                                    }
+                                }
                             }
                         }
                     }
