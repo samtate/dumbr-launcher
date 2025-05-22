@@ -60,20 +60,8 @@ class AppOptionsPopupHelper(
             btnUninstall.visibility = View.VISIBLE // fallback: show if unsure
         }
         
-        // Hide 'Hide App' button for system apps that cannot be hidden
-        try {
-            val pm = context.packageManager
-            val appFlags = pm.getApplicationInfo(appInfo.packageName, 0).flags
-            val isSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-            val isUpdatedSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-            if (isSystemApp && !isUpdatedSystemApp) {
-                btnHide.visibility = View.GONE
-            } else {
-                btnHide.visibility = View.VISIBLE
-            }
-        } catch (e: Exception) {
-            btnHide.visibility = View.VISIBLE // fallback: show if unsure
-        }
+        // Always show 'Hide App' button, even for system apps
+        btnHide.visibility = View.VISIBLE
         
         // Make buttons respond to clicks immediately without requiring focus first
         btnInfo.isFocusableInTouchMode = false
