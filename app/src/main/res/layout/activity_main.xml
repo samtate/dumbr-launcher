@@ -99,4 +99,19 @@
         android:layout_marginBottom="20dp"
         android:visibility="gone" />
 
+    <!-- Dev reset button -->
+    <Button
+        android:id="@+id/dev_reset_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/reset_dev"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        android:background="#AA333333"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="visible" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

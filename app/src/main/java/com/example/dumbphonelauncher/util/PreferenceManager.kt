@@ -61,7 +61,7 @@ class PreferenceManager(private val context: Context) {
         saveHiddenApps(hiddenApps)
     }
 
-    private fun saveHiddenApps(hiddenApps: Set<String>) {
+    fun saveHiddenApps(hiddenApps: Set<String>) {
         prefs.edit()
             .putStringSet(KEY_HIDDEN_APPS, hiddenApps)
             .apply()
@@ -173,4 +173,4 @@ class PreferenceManager(private val context: Context) {
         
         return items
     }
-} 
+}

@@ -28,6 +28,7 @@ class MainActivity : BaseActivity() {
     private lateinit var dateView: TextClock
     private lateinit var deleteIcon: ImageView
     private lateinit var wallpaperView: com.example.dumbphonelauncher.view.WallpaperView
+    private lateinit var devResetButton: android.widget.Button
     
     private val numberBuffer = StringBuilder()
     private val dialerHandler = Handler(Looper.getMainLooper())
@@ -51,6 +52,7 @@ class MainActivity : BaseActivity() {
         dateView = findViewById(R.id.date)
         deleteIcon = findViewById(R.id.delete_icon)
         wallpaperView = findViewById(R.id.wallpaper_view)
+        devResetButton = findViewById(R.id.dev_reset_button)
         
         setupClickListeners()
         setupRightAppButton()
@@ -58,6 +60,10 @@ class MainActivity : BaseActivity() {
         // Preload app drawer icons in the background for instant drawer open
         lifecycleScope.launch(Dispatchers.IO) {
             com.example.dumbphonelauncher.util.AppUtils.getInstalledApps(packageManager)
+        }
+        
+        devResetButton.setOnClickListener {
+            showDevResetDialog()
         }
     }
     
@@ -281,6 +287,30 @@ class MainActivity : BaseActivity() {
     
     override fun onAppHidden(packageName: String) {
         // No pinned apps logic, so nothing to refresh
+    }
+    
+    private fun showDevResetDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Reset App Layout?")
+            .setMessage("This will reset the app list order, folders, and hidden apps. Continue?")
+            .setPositiveButton("Reset") { _, _ ->
+                resetAppLayout()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun resetAppLayout() {
+        // Clear hidden apps, drawer items, and pinned items
+        prefManager.saveDrawerItems(emptyList())
+        prefManager.savePinnedItems(emptyList())
+        prefManager.saveHiddenApps(emptySet())
+        // Optionally, reset right app button
+        prefManager.setRightApp("", "Contacts")
+        // Show confirmation
+        android.widget.Toast.makeText(this, "App layout reset", android.widget.Toast.LENGTH_SHORT).show()
+        // Refresh UI: restart activity to reload everything
+        recreate()
     }
     
     companion object {

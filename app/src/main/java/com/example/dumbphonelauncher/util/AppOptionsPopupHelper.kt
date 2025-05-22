@@ -60,6 +60,21 @@ class AppOptionsPopupHelper(
             btnUninstall.visibility = View.VISIBLE // fallback: show if unsure
         }
         
+        // Hide 'Hide App' button for system apps that cannot be hidden
+        try {
+            val pm = context.packageManager
+            val appFlags = pm.getApplicationInfo(appInfo.packageName, 0).flags
+            val isSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+            val isUpdatedSystemApp = (appFlags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            if (isSystemApp && !isUpdatedSystemApp) {
+                btnHide.visibility = View.GONE
+            } else {
+                btnHide.visibility = View.VISIBLE
+            }
+        } catch (e: Exception) {
+            btnHide.visibility = View.VISIBLE // fallback: show if unsure
+        }
+        
         // Make buttons respond to clicks immediately without requiring focus first
         btnInfo.isFocusableInTouchMode = false
         btnHide.isFocusableInTouchMode = false
@@ -85,17 +100,23 @@ class AppOptionsPopupHelper(
         
         // Hide app button - add to hidden apps preference
         btnHide.setOnClickListener { view ->
+            var hideSucceeded = false
             try {
+                // Always attempt to hide, even if already hidden
                 prefManager.hideApp(appInfo.packageName)
-                
-                // Show confirmation toast
-                Toast.makeText(context, "${appInfo.appName} hidden", Toast.LENGTH_SHORT).show()
-                
-                // Call callback
-                onAppHidden(appInfo.packageName)
+                hideSucceeded = true
             } catch (e: Exception) {
-                Toast.makeText(context, "Could not hide app: ${e.message}", Toast.LENGTH_SHORT).show()
+                // Log error for debugging
+                android.util.Log.e("AppOptionsPopupHelper", "Error hiding app: ${e.message}", e)
             } finally {
+                // Always call callback to update UI, even if hiding failed
+                onAppHidden(appInfo.packageName)
+                // Show toast only if succeeded, else show error
+                if (hideSucceeded) {
+                    Toast.makeText(context, "${appInfo.appName} hidden", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Could not hide app", Toast.LENGTH_SHORT).show()
+                }
                 popupWindow.dismiss()
             }
         }
