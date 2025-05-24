@@ -1,9 +1,13 @@
 package com.example.dumbphonelauncher.adapter
 
+import android.app.Activity
 import android.graphics.Color
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -36,27 +40,87 @@ class AppDrawerGridAdapter(
         private val container: ConstraintLayout = view.findViewById(R.id.container)
         private val icon: ImageView = view.findViewById(R.id.app_icon)
         private val label: TextView = view.findViewById(R.id.app_label)
-        
+
+        // Drag state
+        var isDragging = false
+        private var dragStartX = 0f
+        private var dragStartY = 0f
+        var touchOffsetX = 0f
+        var touchOffsetY = 0f
+
         override fun bind(item: DrawerItem, position: Int) {
             if (item is DrawerItem.AppItem) {
                 icon.setImageDrawable(item.appInfo.icon)
                 label.text = item.appInfo.appName
-                
-                // Setup click listener - directly open app on first touch
+
                 container.setOnClickListener {
-                    // First request focus for visual feedback
                     container.requestFocus()
                     currentFocusPosition = position
-                    // Then open the app
                     onAppClick(item.appInfo)
                 }
-                
-                // Setup long press listener
-                container.setOnLongClickListener {
-                    onItemLongPress(it, item, position)
+
+                container.setOnLongClickListener { v ->
+                    isDragging = true
+                    (container.context as? com.example.dumbphonelauncher.AppDrawerActivity)?.setAppIconDragging(true)
+
+                    // Record the original position of the container
+                    val loc = IntArray(2)
+                    container.getLocationOnScreen(loc)
+                    dragStartX = container.x
+                    dragStartY = container.y
+                    // We'll get the touch offset on the first ACTION_MOVE
+                    touchOffsetX = 0f
+                    touchOffsetY = 0f
+
+                    // Visual feedback
+                    container.alpha = 0.7f
+                    container.scaleX = 1.15f
+                    container.scaleY = 1.15f
+                    container.elevation = 16f
                     true
                 }
-                
+
+                container.setOnTouchListener { v, event ->
+                    if (!isDragging) return@setOnTouchListener false
+                    when (event.action) {
+                        android.view.MotionEvent.ACTION_MOVE -> {
+                            // On first move, calculate offset from touch to container top-left
+                            if (touchOffsetX == 0f && touchOffsetY == 0f) {
+                                val loc = IntArray(2)
+                                container.getLocationOnScreen(loc)
+                                touchOffsetX = event.rawX - loc[0]
+                                touchOffsetY = event.rawY - loc[1]
+                            }
+                            // Move the container so its top-left follows the finger (minus offset)
+                            val parent = container.parent as? View
+                            if (parent != null) {
+                                val parentLoc = IntArray(2)
+                                parent.getLocationOnScreen(parentLoc)
+                                val newX = event.rawX - parentLoc[0] - touchOffsetX
+                                val newY = event.rawY - parentLoc[1] - touchOffsetY
+                                container.translationX = newX - container.left
+                                container.translationY = newY - container.top
+                            }
+                            return@setOnTouchListener true
+                        }
+                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                            isDragging = false
+                            (container.context as? com.example.dumbphonelauncher.AppDrawerActivity)?.setAppIconDragging(false)
+                            // Reset visuals and position
+                            container.alpha = 1f
+                            container.scaleX = 1f
+                            container.scaleY = 1f
+                            container.elevation = 0f
+                            container.translationX = 0f
+                            container.translationY = 0f
+                            touchOffsetX = 0f
+                            touchOffsetY = 0f
+                            return@setOnTouchListener true
+                        }
+                    }
+                    false
+                }
+
                 // Setup focus handling
                 setupFocus(container, position)
             }

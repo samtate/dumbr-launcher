@@ -70,6 +70,18 @@ class AppDrawerActivity : BaseActivity() {
     private val TAP_SLOP = 32f // px, adjust as needed
     private val TAP_TIMEOUT = 300L // ms
 
+    // --- Add: Track if an app icon is being dragged ---
+    public var isDraggingAppIcon = false
+
+    // Called by adapter to notify drag state
+    fun setAppIconDragging(isDragging: Boolean) {
+        isDraggingAppIcon = isDragging
+        viewPager.isUserInputEnabled = !isDragging // Disable swipe while dragging
+        if (isDragging) {
+            hideCursor()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -489,6 +501,7 @@ class AppDrawerActivity : BaseActivity() {
      * Show the cursor at the top-left position of the current page
      */
     private fun showCursorAtTopLeft() {
+        if (isDraggingAppIcon) return // Suppress focus/cursor during drag
         if (isTransitioning || !this::pagerAdapter.isInitialized) return
         
         val currentPage = viewPager.currentItem
@@ -528,8 +541,8 @@ class AppDrawerActivity : BaseActivity() {
      * Show the cursor by setting focus to current position
      */
     private fun showCursor() {
+        if (isDraggingAppIcon) return // Suppress focus/cursor during drag
         if (!isTransitioning && allowPositionUpdates) {
-            // Apply focus to the item at the current global cursor position
             updateFocusOnCurrentPage(true)
         }
     }
@@ -885,7 +898,7 @@ class AppDrawerActivity : BaseActivity() {
      * Update the global cursor position and apply focus to the correct item
      */
     private fun updateCursorPosition(newGlobalPosition: Int, animate: Boolean = true) {
-        if (!allowPositionUpdates) return
+        if (!allowPositionUpdates || isDraggingAppIcon) return
         
         // Ensure position is within valid range
         val clampedPosition = newGlobalPosition.coerceIn(0, drawerItems.size - 1)
@@ -925,12 +938,10 @@ class AppDrawerActivity : BaseActivity() {
      * Force update the focus position after a page change
      */
     private fun updateFocusAfterPageChange() {
-        // Allow animations to complete first
+        if (isDraggingAppIcon) return
         Handler(Looper.getMainLooper()).postDelayed({
-            // Update focus
+            if (isDraggingAppIcon) return@postDelayed
             updateFocusOnCurrentPage(true)
-            
-            // Re-enable position updates after applying focus
             Handler(Looper.getMainLooper()).postDelayed({
                 isTransitioning = false
                 allowPositionUpdates = true
@@ -942,6 +953,7 @@ class AppDrawerActivity : BaseActivity() {
      * Apply focus to the item corresponding to the global cursor position on the current page
      */
     private fun updateFocusOnCurrentPage(clearOtherFocus: Boolean = true) {
+        if (isDraggingAppIcon) return // Suppress focus/cursor during drag
         val currentPage = viewPager.currentItem
         val localPosition = getLocalPositionFromGlobal(globalCursorPosition)
         

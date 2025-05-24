@@ -107,6 +107,18 @@ class AppDrawerPagerAdapter(
             // Store recycler view reference
             recyclerViews[position] = this
         }
+        
+        // Block RecyclerView touch events during app icon drag
+        holder.recyclerView.setOnTouchListener { _, event ->
+            val activity = holder.recyclerView.context as? com.example.dumbphonelauncher.AppDrawerActivity
+            if (activity?.isDraggingAppIcon == true) {
+                // Block all touch events while dragging
+                true
+            } else {
+                // Let RecyclerView handle events normally
+                false
+            }
+        }
     }
     
     override fun getItemCount(): Int {
@@ -502,4 +514,4 @@ class AppDrawerPagerAdapter(
             }, 200)
         }
     }
-} 
+}
